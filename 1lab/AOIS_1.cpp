@@ -6,8 +6,16 @@
 
 using namespace std;
 
-const int BITS = 32;
 typedef unsigned int ieee754; 
+const int BITS = 32;
+const int SIGN_BIT = 31;
+const int EXPONENT_BITS = 8;
+const int MANTISSA_BITS = 23;
+const int EXPONENT_BIAS = 127;
+const unsigned int MANTISSA_MASK = 0x7FFFFF;
+const unsigned int EXPONENT_MASK = 0xFF;
+const unsigned int HIDDEN_BIT = 1 << MANTISSA_BITS;
+const unsigned int OVERFLOW_BIT = 1 << (MANTISSA_BITS + 1);
 
 int fromTwoComplementToDecimal(const string& binary) {
     if (binary.length() != BITS) {
@@ -195,12 +203,12 @@ double divide(int dividend, int divisor) {
 }
 
 void printIEEE754(ieee754 binary) {
-    cout << ((binary >> 31) & 1) << "  ";  
-    for (int i = 30; i >= 23; i--) {          
+    cout << ((binary >> SIGN_BIT) & 1) << "  ";
+    for (int i = SIGN_BIT - 1; i >= MANTISSA_BITS; i--) {
         cout << ((binary >> i) & 1);
     }
     cout << "  ";
-    for (int i = 22; i >= 0; i--) {        
+    for (int i = MANTISSA_BITS - 1; i >= 0; i--) {
         cout << ((binary >> i) & 1);
     }
     cout << endl;
@@ -219,19 +227,19 @@ ieee754 floatToIEEE754(float num) {
     while (num >= 2.0f) { num /= 2; exponent++; }
     while (num < 1.0f && num > 0.0f) { num *= 2; exponent--; }
 
-    exponent += 127;
+    exponent += EXPONENT_BIAS;
 
     num -= 1.0f;
     unsigned int mantissa = 0;
-    for (int i = 0; i < 23; i++) {
+    for (int i = 0; i < MANTISSA_BITS; i++) {
         num *= 2;
         if (num >= 1.0f) {
-            mantissa |= (1 << (22 - i));
+            mantissa |= (1 << (MANTISSA_BITS - 1 - i));
             num -= 1.0f;
         }
     }
 
-    ieee754 result = (sign << 31) | (exponent << 23) | mantissa;
+    ieee754 result = (sign << SIGN_BIT) | (exponent << MANTISSA_BITS) | mantissa;
     printIEEE754(result);
     return result;
 }
@@ -239,13 +247,13 @@ ieee754 floatToIEEE754(float num) {
 float ieee754ToFloat(ieee754 binary) {
     if (binary == 0) return 0.0f;
 
-    int sign = (binary >> 31) & 1;
-    int exponent = ((binary >> 23) & 0xFF) - 127;
-    unsigned int mantissa = binary & 0x7FFFFF;
+    int sign = (binary >> SIGN_BIT) & 1;
+    int exponent = ((binary >> MANTISSA_BITS) & EXPONENT_MASK) - EXPONENT_BIAS;
+    unsigned int mantissa = binary & MANTISSA_MASK;
 
     float value = 1.0f;
-    for (int i = 0; i < 23; i++) {
-        if (mantissa & (1 << (22 - i))) {
+    for (int i = 0; i < MANTISSA_BITS; i++) {
+        if (mantissa & (1 << (MANTISSA_BITS - 1 - i))) {
             value += (1.0f / (1 << (i + 1)));
         }
     }
@@ -255,10 +263,10 @@ float ieee754ToFloat(ieee754 binary) {
 }
 
 ieee754 ieee754Add(ieee754 a, ieee754 b) {
-    int exponentA = (a >> 23) & 0xFF;
-    int exponentB = (b >> 23) & 0xFF;
-    unsigned int mantissaA = (a & 0x7FFFFF) | (1 << 23);
-    unsigned int mantissaB = (b & 0x7FFFFF) | (1 << 23);
+    int exponentA = (a >> MANTISSA_BITS) & EXPONENT_MASK;
+    int exponentB = (b >> MANTISSA_BITS) & EXPONENT_MASK;
+    unsigned int mantissaA = (a & MANTISSA_MASK) | HIDDEN_BIT;
+    unsigned int mantissaB = (b & MANTISSA_MASK) | HIDDEN_BIT;
 
     if (exponentA > exponentB) {
         mantissaB >>= (exponentA - exponentB);
@@ -271,14 +279,14 @@ ieee754 ieee754Add(ieee754 a, ieee754 b) {
 
     unsigned int mantissaSum = mantissaA + mantissaB;
 
-    if (mantissaSum & (1 << 24)) {
+    if (mantissaSum & OVERFLOW_BIT) {
         mantissaSum >>= 1;
         exponentA++;
     }
 
-    mantissaSum &= 0x7FFFFF;
+    mantissaSum &= MANTISSA_MASK;
 
-    ieee754 result = (exponentA << 23) | mantissaSum;
+    ieee754 result = (exponentA << MANTISSA_BITS) | mantissaSum;
     printIEEE754(result);
     return result;
 }

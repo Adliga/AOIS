@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "gtest/gtest.h"
-#include "D:\Study\VisualStudio\AOIS_1_test\AOIS_1_test\AOIS_1_test.cpp" 
+#include "D:\Study\VisualStudio\AOIS_1\AOIS_1\AOIS_1.cpp" 
 
 TEST(TwoComplementTest, PositiveNumbers) {
     EXPECT_EQ(fromTwoComplementToDecimal("00000000000000000000000000000000"), 0);
