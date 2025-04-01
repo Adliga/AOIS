@@ -90,10 +90,6 @@ void validateExpression(const string& expr) {
         throw invalid_argument("Ошибка: В выражении не может быть более 5 различных переменных.");
     }
 
-    if (!hasOperator) {
-        throw invalid_argument("Ошибка: В выражении должна быть хотя бы одна логическая операция.");
-    }
-
     if (lastWasOperator && expr.back() != '!') {
         throw invalid_argument("Ошибка: Выражение не может заканчиваться оператором.");
     }
@@ -268,16 +264,16 @@ int binaryToDecimal(const vector<bool>& binary) {
     return decimal;
 }
 
-void printTruthTable(const string& expr) {
-    vector<string> rpn = toRPN(expr);
+vector<char> extractVariables(const string& expr) {
     set<char> variableSet;
-
     for (char ch : expr) {
         if (isalpha(ch))
             variableSet.insert(ch);
     }
-    
-    vector<char> variables(variableSet.begin(), variableSet.end());
+    return vector<char>(variableSet.begin(), variableSet.end());
+}
+
+vector<vector<bool>> generateVariableCombinations(const vector<char>& variables) {
     size_t numRows = 1 << variables.size();
     vector<vector<bool>> allValues(numRows, vector<bool>(variables.size()));
 
@@ -286,9 +282,14 @@ void printTruthTable(const string& expr) {
             allValues[i][j] = (i >> (variables.size() - 1 - j)) & 1;
         }
     }
+    return allValues;
+}
 
-    vector<pair<string, vector<bool>>> results = evaluateRPN(rpn, variables, allValues);
+vector<pair<string, vector<bool>>> evaluateExpressions(const vector<string>& rpn, const vector<char>& variables, const vector<vector<bool>>& allValues) {
+    return evaluateRPN(rpn, variables, allValues);
+}
 
+pair<string, vector<bool>> selectFinalExpression(vector<pair<string, vector<bool>>>& results) {
     size_t finalIndex = 0, maxLen = 0;
     for (size_t i = 0; i < results.size(); ++i) {
         if (results[i].first.length() > maxLen) {
@@ -299,15 +300,11 @@ void printTruthTable(const string& expr) {
     pair<string, vector<bool>> finalExpr = results[finalIndex];
     results.erase(results.begin() + finalIndex);
     results.push_back(finalExpr);
+    return finalExpr;
+}
 
-    int varWidth = 3; 
-    vector<int> exprWidths;
-    for (const auto& pr : results) {
-        int width = max((int)pr.first.size(), 3);
-        exprWidths.push_back(width);
-    }
-
-    cout << "\nТаблица истинности для функции: " << expr << "\n";
+void printTableHeader(const vector<char>& variables, const vector<pair<string, vector<bool>>>& results, const vector<int>& exprWidths) {
+    int varWidth = 3;
 
     for (char var : variables)
         cout << centerText(string(1, var), varWidth) << " | ";
@@ -329,29 +326,34 @@ void printTruthTable(const string& expr) {
             cout << " | ";
     }
     cout << "\n";
+}
 
-    vector<int> minterms, maxterms;
-    vector<bool> binaryForm;
-    for (size_t i = 0; i < numRows; i++) {
+void printTableData(const vector<char>& variables, const vector<pair<string, vector<bool>>>& results,
+    const vector<vector<bool>>& allValues, vector<bool>& binaryForm, vector<int>& minterms, vector<int>& maxterms) {
+    int varWidth = 3;
+    vector<int> exprWidths;
+    for (const auto& pr : results)
+        exprWidths.push_back(max((int)pr.first.size(), 3));
 
+    for (size_t i = 0; i < allValues.size(); i++) {
         for (size_t j = 0; j < variables.size(); j++) {
-            string val = to_string(allValues[i][j]);
-            cout << centerText(val, varWidth) << " | ";
+            cout << centerText(to_string(allValues[i][j]), varWidth) << " | ";
         }
 
         for (size_t k = 0; k < results.size(); k++) {
-            string val = to_string(results[k].second[i]);
-            cout << centerText(val, exprWidths[k]);
+            cout << centerText(to_string(results[k].second[i]), exprWidths[k]);
             if (k != results.size() - 1)
                 cout << " | ";
         }
         cout << "\n";
 
-        binaryForm.push_back(finalExpr.second[i]);
-        if (finalExpr.second[i] == 1) minterms.push_back(i);
+        binaryForm.push_back(results.back().second[i]);
+        if (results.back().second[i] == 1) minterms.push_back(i);
         else maxterms.push_back(i);
     }
+}
 
+void printCanonicalForms(const vector<char>& variables, const vector<int>& minterms, const vector<int>& maxterms, const vector<bool>& binaryForm) {
     int decimalIndexForm = binaryToDecimal(binaryForm);
 
     cout << "\nСДНФ: " << constructSDNF(variables, minterms) << "\n";
@@ -361,6 +363,28 @@ void printTruthTable(const string& expr) {
     cout << "Индексная форма функции: " << decimalIndexForm << " (бинарное: ";
     for (bool bit : binaryForm) cout << bit;
     cout << ")\n";
+}
+
+void printTruthTable(const string& expr) {
+    vector<string> rpn = toRPN(expr);
+    vector<char> variables = extractVariables(expr);
+    vector<vector<bool>> allValues = generateVariableCombinations(variables);
+
+    vector<pair<string, vector<bool>>> results = evaluateExpressions(rpn, variables, allValues);
+    pair<string, vector<bool>> finalExpr = selectFinalExpression(results);
+
+    vector<int> exprWidths;
+    for (const auto& pr : results)
+        exprWidths.push_back(max((int)pr.first.size(), 3));
+
+    cout << "\nТаблица истинности для функции: " << expr << "\n";
+    printTableHeader(variables, results, exprWidths);
+
+    vector<int> minterms, maxterms;
+    vector<bool> binaryForm;
+    printTableData(variables, results, allValues, binaryForm, minterms, maxterms);
+
+    printCanonicalForms(variables, minterms, maxterms, binaryForm);
 }
 
 int main() {
