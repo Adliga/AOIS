@@ -64,6 +64,7 @@ void printResultTerms(const vector<Term>& terms, const vector<char>& varNames, b
         }
         else {
             cout << "(" << formatCNFterm(terms[i].vars, varNames) << ")";
+            if (i < terms.size() - 1) cout << "&";
         }
     }
 

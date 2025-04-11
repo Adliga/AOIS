@@ -6,6 +6,7 @@
 #include <sstream>
 #include <map>
 #include <algorithm>
+#include <tuple>
 
 using namespace std;
 
@@ -16,6 +17,10 @@ struct Term {
 
     Term(string v) : vars(v), used(false) {}
 };
+
+bool operator==(const Term& lhs, const Term& rhs) {
+    return lhs.vars == rhs.vars;
+}
 
 string parseDNFterm(const string& term, vector<char>& varNames) {
     string result;
@@ -36,9 +41,13 @@ string parseDNFterm(const string& term, vector<char>& varNames) {
             if (find(varNames.begin(), varNames.end(), var) == varNames.end())
                 varNames.push_back(var);
         }
+        else if (term[i] == '&') {
+            continue;
+        }
     }
     return result;
 }
+
 
 string parseCNFterm(const string& term, vector<char>& varNames) {
     string result;
@@ -59,6 +68,9 @@ string parseCNFterm(const string& term, vector<char>& varNames) {
             if (find(varNames.begin(), varNames.end(), var) == varNames.end())
                 varNames.push_back(var);
         }
+        else if (term[i] == '|') {
+            continue;
+        }
     }
     return result;
 }
@@ -78,10 +90,11 @@ vector<Term> parseFunction(const string& input, bool isDNF, vector<char>& varNam
         }
     }
     else {
-        while (getline(ss, term, ')')) {
+        while (getline(ss, term, '&')) {
             term.erase(remove_if(term.begin(), term.end(), isspace), term.end());
             if (term.empty() || term == "(") continue;
             if (term[0] == '(') term = term.substr(1);
+            if (term.back() == ')') term.pop_back();
             Term t(parseCNFterm(term, varNames));
             t.coveredTerms.insert(t.vars);
             terms.push_back(t);
@@ -109,10 +122,13 @@ string glue(const string& t1, const string& t2) {
 
 string formatDNFterm(const string& term, const vector<char>& varNames) {
     string result;
+    bool first = true;
     for (int i = 0; i < term.length(); i++) {
         if (term[i] == '-') continue;
+        if (!first) result += "&";
         if (term[i] == '0') result += "!" + string(1, varNames[i]);
-        else if (term[i] == '1') result += varNames[i];
+        else if (term[i] == '1') result += string(1, varNames[i]);
+        first = false;
     }
     return result.empty() ? "1" : result;
 }

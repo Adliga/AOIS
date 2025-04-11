@@ -102,24 +102,59 @@ void printCoverTable(const vector<Term>& primeImplicants, const vector<string>& 
     }
 }
 
+int countLiterals(const string& vars) {
+    int count = 0;
+    for (char c : vars) {
+        if (c != '-') count++;
+    }
+    return count;
+}
+
 vector<Term> selectFinalImplicants(const vector<Term>& primeImplicants, const vector<string>& originalTerms, int varCount) {
     vector<Term> finalImplicants;
     set<string> covered;
+
+    for (const auto& term : originalTerms) {
+        vector<const Term*> coveringImplicants;
+        for (const auto& pi : primeImplicants) {
+            if (covers(pi.vars, term, varCount)) {
+                coveringImplicants.push_back(&pi);
+            }
+        }
+        if (coveringImplicants.size() == 1) {
+            const Term* essential = coveringImplicants[0];
+            if (find(finalImplicants.begin(), finalImplicants.end(), *essential) == finalImplicants.end()) {
+                finalImplicants.push_back(*essential);
+                for (const auto& t : originalTerms) {
+                    if (covers(essential->vars, t, varCount)) {
+                        covered.insert(t);
+                    }
+                }
+            }
+        }
+    }
+
     while (covered.size() < originalTerms.size()) {
         int maxNewCovered = 0;
+        int minLiterals = varCount + 1;
         const Term* bestImplicant = nullptr;
+
         for (const auto& pi : primeImplicants) {
+            if (find(finalImplicants.begin(), finalImplicants.end(), pi) != finalImplicants.end()) continue;
             int newCovered = 0;
             for (const auto& term : originalTerms) {
                 if (covered.find(term) == covered.end() && covers(pi.vars, term, varCount)) {
                     newCovered++;
                 }
             }
-            if (newCovered > maxNewCovered) {
+            int literals = countLiterals(pi.vars);
+            if (newCovered > maxNewCovered || (newCovered == maxNewCovered && literals < minLiterals)) {
                 maxNewCovered = newCovered;
+                minLiterals = literals;
                 bestImplicant = &pi;
             }
         }
+
         if (bestImplicant) {
             finalImplicants.push_back(*bestImplicant);
             for (const auto& term : originalTerms) {
@@ -128,8 +163,11 @@ vector<Term> selectFinalImplicants(const vector<Term>& primeImplicants, const ve
                 }
             }
         }
-        else break;
+        else {
+            break;
+        }
     }
+
     return finalImplicants;
 }
 
@@ -141,7 +179,7 @@ void printFinalResult(const vector<Term>& finalImplicants, const vector<char>& v
             result += formatDNFterm(finalImplicants[i].vars, varNames);
             cout << "(" << formatDNFterm(finalImplicants[i].vars, varNames) << ")";
             if (i < finalImplicants.size() - 1) {
-                result += " | ";
+                result += "|";
                 cout << "|";
             }
         }
@@ -149,8 +187,8 @@ void printFinalResult(const vector<Term>& finalImplicants, const vector<char>& v
             result += formatCNFterm(finalImplicants[i].vars, varNames);
             cout << "(" << formatCNFterm(finalImplicants[i].vars, varNames) << ")";
             if (i < finalImplicants.size() - 1) {
-                result += "";
-                cout << "";
+                result += "&";
+                cout << "&";
             }
         }
     }
