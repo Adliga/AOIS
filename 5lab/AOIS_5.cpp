@@ -62,9 +62,9 @@ vector<Term> glueTerms(vector<Term> terms, const vector<string>& varNames) {
                     newTerms.insert(gluedTerm);
                     used[i] = used[j] = true;
                     glued = true;
-                   /* cout << "(" << formatDNFterm(terms[i].vars, varNames) << ") | ("
-                        << formatDNFterm(terms[j].vars, varNames) << ") => ("
-                        << formatDNFterm(gluedTerm, varNames) << ")\n";*/
+                    cout << "(" << formatDNFterm(terms[i].vars, varNames) << ") | ("//
+                        << formatDNFterm(terms[j].vars, varNames) << ") => ("//
+                        << formatDNFterm(gluedTerm, varNames) << ")\n";//
                 }
             }
         }
